@@ -1,5 +1,6 @@
 import { getSession } from '@auth0/nextjs-auth0';
-import { User, Wallet } from '../../../lib/models';
+import { join } from 'path';
+import { createRequire } from 'module';
 
 export async function GET() {
   try {
@@ -9,22 +10,27 @@ export async function GET() {
       return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Find user in database
+    const modelsPath = join(process.cwd(), 'lib', 'models.js');
+    const requireFunc = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+    const models = requireFunc(modelsPath);
+    const { User, Wallet } = models;
+
     const user = User.findByAuth0Id(session.user.sub);
     
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get wallet balance
     const balance = Wallet.getBalance(user.id);
     
     return Response.json({ balance });
   } catch (error) {
     console.error('Error fetching wallet balance:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error stack:', error.stack);
+    return Response.json({ 
+      error: 'Internal server error',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }
 }
-
-
-

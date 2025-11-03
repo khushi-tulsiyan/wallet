@@ -10,10 +10,10 @@ export default function Login() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
+    if (!isLoading && user) {
       router.push('/dashboard');
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -70,6 +70,7 @@ export default function Login() {
     </div>
   );
 }
+
 
 
 

@@ -1,5 +1,6 @@
 import { getSession } from '@auth0/nextjs-auth0';
-import { User, Wallet, Transaction } from '../../../lib/models';
+import { join } from 'path';
+import { createRequire } from 'module';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
@@ -16,29 +17,31 @@ export async function POST(request) {
       return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
+    const modelsPath = join(process.cwd(), 'lib', 'models.js');
+    const requireFunc = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+    const models = requireFunc(modelsPath);
+    const { User, Wallet, Transaction } = models;
+
     const { amount } = await request.json();
     
     if (!amount || amount <= 0) {
       return Response.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
-    // Find user in database
     const user = User.findByAuth0Id(session.user.sub);
     
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get user's wallet
     const wallet = Wallet.findByUserId(user.id);
     
     if (!wallet) {
       return Response.json({ error: 'Wallet not found' }, { status: 404 });
     }
 
-    // Create Razorpay order
     const orderOptions = {
-      amount: amount * 100, // Convert to paise
+      amount: amount * 100,
       currency: 'INR',
       receipt: `receipt_${Date.now()}`,
       notes: {
@@ -50,7 +53,6 @@ export async function POST(request) {
 
     const order = await razorpay.orders.create(orderOptions);
 
-    // Create transaction record
     const transaction = Transaction.create({
       userId: user.id,
       walletId: wallet.id,
@@ -69,9 +71,11 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error('Error creating recharge order:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error stack:', error.stack);
+    return Response.json({ 
+      error: 'Internal server error',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }
 }
-
-
-

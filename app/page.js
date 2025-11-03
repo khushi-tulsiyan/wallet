@@ -10,10 +10,10 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
+    if (!isLoading && user) {
       router.push('/dashboard');
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -30,15 +30,40 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-yellow">EventWallet</h1>
+              <Link href="/" className="text-2xl font-bold text-yellow">EventWallet</Link>
             </div>
             <div className="flex items-center space-x-4">
-              <Link
-                href="/api/auth/login"
-                className="bg-yellow text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-dark transition-colors"
-              >
-                Sign In
-              </Link>
+              {user ? (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <img
+                      src={user.picture}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                    <span className="text-gray-300">{user.name}</span>
+                  </div>
+                  <Link
+                    href="/dashboard"
+                    className="bg-yellow text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-dark transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/api/auth/logout"
+                    className="text-gray-400 hover:text-yellow transition-colors"
+                  >
+                    Sign Out
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href="/api/auth/login"
+                  className="bg-yellow text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-dark transition-colors"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -109,6 +134,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 

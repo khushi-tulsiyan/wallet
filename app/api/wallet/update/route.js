@@ -1,16 +1,22 @@
-import { User, Wallet, Transaction } from '../../../lib/models';
-import db from '../../../lib/database';
+import { join } from 'path';
+import { createRequire } from 'module';
 import crypto from 'crypto';
 
 export async function POST(request) {
   try {
+    const modelsPath = join(process.cwd(), 'lib', 'models.js');
+    const dbPath = join(process.cwd(), 'lib', 'database.js');
+    const requireFunc = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+    const models = requireFunc(modelsPath);
+    const db = requireFunc(dbPath);
+    const { User, Wallet, Transaction } = models;
+
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = await request.json();
 
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return Response.json({ error: 'Missing payment parameters' }, { status: 400 });
     }
 
-    // Verify the signature
     const body = razorpay_order_id + '|' + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_SECRET)
@@ -21,7 +27,6 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    // Find transaction by payment ID
     const transaction = Transaction.findByPaymentId(razorpay_payment_id);
     
     if (!transaction) {
@@ -32,7 +37,6 @@ export async function POST(request) {
       return Response.json({ error: 'Transaction already processed' }, { status: 400 });
     }
 
-    // Update transaction status and add payment ID
     const updateStmt = db.prepare(`
       UPDATE transactions 
       SET status = ?, razorpay_payment_id = ?
@@ -40,10 +44,8 @@ export async function POST(request) {
     `);
     updateStmt.run('completed', razorpay_payment_id, transaction.id);
 
-    // Update wallet balance
     Wallet.updateBalance(transaction.user_id, transaction.amount);
 
-    // Get updated balance
     const newBalance = Wallet.getBalance(transaction.user_id);
 
     return Response.json({
@@ -53,6 +55,11 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error('Error updating wallet:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error stack:', error.stack);
+    return Response.json({ 
+      error: 'Internal server error',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }
 }

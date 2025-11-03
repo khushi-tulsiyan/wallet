@@ -1,5 +1,9 @@
 import { getSession } from '@auth0/nextjs-auth0';
-import { User, Transaction } from '../../../lib/models';
+import { createRequire } from 'module';
+import { join } from 'path';
+
+const require = createRequire(import.meta.url);
+const { User, Transaction } = require(join(process.cwd(), 'lib', 'models.js'));
 
 export async function POST(request) {
   try {
@@ -15,21 +19,18 @@ export async function POST(request) {
       return Response.json({ error: 'Transaction ID is required' }, { status: 400 });
     }
 
-    // Find user in database
     const user = User.findByAuth0Id(session.user.sub);
     
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Find transaction
     const transaction = Transaction.findByPaymentId(transactionId);
     
     if (!transaction) {
       return Response.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
-    // Log the wallet recharge event for ERPNext integration
     const erpnextEvent = {
       event_type: 'wallet_recharge',
       user_id: user.id,
@@ -43,11 +44,8 @@ export async function POST(request) {
       description: transaction.description
     };
 
-    // In a real implementation, you would send this to ERPNext
-    // For now, we'll just log it
     console.log('ERPNext Event:', JSON.stringify(erpnextEvent, null, 2));
 
-    // Simulate ERPNext API call
     try {
       // This would be your actual ERPNext API endpoint
       // const erpnextResponse = await fetch('https://your-erpnext-instance.com/api/method/your_custom_method', {
@@ -80,6 +78,7 @@ export async function POST(request) {
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
 
 
 
